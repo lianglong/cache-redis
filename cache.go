@@ -8,6 +8,7 @@ import (
 
 	"github.com/lianglong/cache"
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9/maintnotifications"
 )
 
 func init() {
@@ -34,6 +35,16 @@ func NewRedisStore(config cache.Config) (*redis.Client, error) {
 		config.WriteTimeout = 3 * time.Second
 	}
 
+	// 处理 MaintNotificationsConfig
+	var maintNotificationsConfig *maintnotifications.Config
+	if config.Extra != nil {
+		// 检查是否禁用 maintnotifications
+		if disableMaint, ok := config.Extra["DisableMaintNotifications"].(bool); ok && disableMaint {
+			maintNotificationsConfig = &maintnotifications.Config{
+				Mode: maintnotifications.ModeDisabled,
+			}
+		}
+	}
 	// 创建 Redis 客户端
 	client := redis.NewClient(&redis.Options{
 		Addr:         config.Addr,
@@ -55,6 +66,9 @@ func NewRedisStore(config cache.Config) (*redis.Client, error) {
 		MaxRetries:      3,
 		MinRetryBackoff: 8 * time.Millisecond,
 		MaxRetryBackoff: 512 * time.Millisecond,
+
+		// 维护通知配置
+		MaintNotificationsConfig: maintNotificationsConfig,
 	})
 
 	// 验证连接
