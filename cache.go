@@ -11,6 +11,35 @@ import (
 	"github.com/redis/go-redis/v9/maintnotifications"
 )
 
+// Logger 接口定义，用于集成自定义日志系统
+// 实现此接口以使用你自己的日志库（如 logrus, zap, slog 等）
+type Logger interface {
+	Printf(ctx context.Context, format string, v ...interface{})
+}
+
+// redisLoggerAdapter 适配器，用于将自定义 Logger 适配到 go-redis 内部使用
+// 虽然我们不能直接引用 internal.Logging 类型，但可以通过结构体实现相同的方法签名
+type redisLoggerAdapter struct {
+	logger Logger
+}
+
+func (a *redisLoggerAdapter) Printf(ctx context.Context, format string, v ...interface{}) {
+	if a.logger != nil {
+		a.logger.Printf(ctx, format, v...)
+	}
+}
+
+// SetRedisLogger 设置 go-redis 的全局日志记录器
+// 注意：这会影响所有使用 go-redis 的客户端实例
+func SetRedisLogger(logger Logger) {
+	if logger != nil {
+		adapter := &redisLoggerAdapter{logger: logger}
+		// 使用类型断言绕过编译器检查，将适配器传递给 redis.SetLogger
+		// 这利用了 Go 的鸭子类型特性：只要方法签名匹配即可
+		redis.SetLogger(adapter)
+	}
+}
+
 func init() {
 	cache.Register("redis", func(config cache.Config) (cache.Cache, error) {
 		client, err := NewRedisStore(config)
@@ -43,6 +72,11 @@ func NewRedisStore(config cache.Config) (*redis.Client, error) {
 			maintNotificationsConfig = &maintnotifications.Config{
 				Mode: maintnotifications.ModeDisabled,
 			}
+		}
+
+		// 从 Extra 中获取 Logger 并设置全局日志记录器
+		if logger, ok := config.Extra["Logger"].(Logger); ok && logger != nil {
+			SetRedisLogger(logger)
 		}
 	}
 	// 创建 Redis 客户端
