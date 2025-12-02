@@ -3,7 +3,7 @@ module github.com/lianglong/cache-redis
 go 1.21
 
 require (
-	github.com/lianglong/cache v1.0.0
+	github.com/lianglong/cache v1.1.0
 	github.com/redis/go-redis/v9 v9.15.1
 )
 

@@ -311,6 +311,48 @@ func (rc *redisCache) SRem(ctx context.Context, key string, members ...interface
 }
 
 // ============================================
+// Pub/Sub 操作
+// ============================================
+
+func (rc *redisCache) Publish(ctx context.Context, channel string, message string) error {
+	return rc.client.Publish(ctx, channel, message).Err()
+}
+
+func (rc *redisCache) Subscribe(ctx context.Context, channels ...string) (cache.PubSub, error) {
+	pubsub := rc.client.Subscribe(ctx, channels...)
+	// 等待订阅确认
+	_, err := pubsub.Receive(ctx)
+	if err != nil {
+		pubsub.Close()
+		return nil, err
+	}
+	return &redisPubSub{pubsub: pubsub}, nil
+}
+
+// redisPubSub Redis Pub/Sub 实现
+type redisPubSub struct {
+	pubsub *redis.PubSub
+}
+
+func (p *redisPubSub) Channel() <-chan *cache.Message {
+	ch := make(chan *cache.Message)
+	go func() {
+		defer close(ch)
+		for msg := range p.pubsub.Channel() {
+			ch <- &cache.Message{
+				Channel: msg.Channel,
+				Payload: msg.Payload,
+			}
+		}
+	}()
+	return ch
+}
+
+func (p *redisPubSub) Close() error {
+	return p.pubsub.Close()
+}
+
+// ============================================
 // 管理操作
 // ============================================
 
