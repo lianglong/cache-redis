@@ -371,3 +371,89 @@ func (rc *redisCache) Keys(ctx context.Context, pattern string) ([]string, error
 func (rc *redisCache) Close() error {
 	return rc.client.Close()
 }
+
+// ============================================
+// Lua 脚本操作
+// ============================================
+
+// Eval 执行 Lua 脚本
+// script: Lua 脚本内容
+// keys: KEYS 数组，脚本中通过 KEYS[1], KEYS[2] 等访问
+// args: ARGV 数组，脚本中通过 ARGV[1], ARGV[2] 等访问
+// 返回脚本执行结果
+func (rc *redisCache) Eval(ctx context.Context, script string, keys []string, args ...interface{}) (interface{}, error) {
+	return rc.client.Eval(ctx, script, keys, args...).Result()
+}
+
+// EvalSha 通过 SHA1 哈希执行预加载的 Lua 脚本
+// sha1: 脚本的 SHA1 哈希值（通过 ScriptLoad 获得）
+// keys: KEYS 数组
+// args: ARGV 数组
+func (rc *redisCache) EvalSha(ctx context.Context, sha1 string, keys []string, args ...interface{}) (interface{}, error) {
+	return rc.client.EvalSha(ctx, sha1, keys, args...).Result()
+}
+
+// ScriptLoad 加载 Lua 脚本到 Redis 服务器
+// 返回脚本的 SHA1 哈希值，可用于后续的 EvalSha 调用
+func (rc *redisCache) ScriptLoad(ctx context.Context, script string) (string, error) {
+	return rc.client.ScriptLoad(ctx, script).Result()
+}
+
+// ScriptExists 检查一个或多个脚本是否已加载到 Redis
+// sha1s: 要检查的脚本 SHA1 哈希值列表
+// 返回布尔数组，表示每个脚本是否存在
+func (rc *redisCache) ScriptExists(ctx context.Context, sha1s ...string) ([]bool, error) {
+	return rc.client.ScriptExists(ctx, sha1s...).Result()
+}
+
+// ScriptFlush 清除 Redis 服务器上所有已加载的 Lua 脚本
+func (rc *redisCache) ScriptFlush(ctx context.Context) error {
+	return rc.client.ScriptFlush(ctx).Err()
+}
+
+// Script 封装了一个可重复使用的 Lua 脚本
+type Script struct {
+	script *redis.Script
+}
+
+// NewScript 创建一个新的脚本对象
+// script: Lua 脚本内容
+// 返回的 Script 对象会自动管理脚本的加载和执行
+func (rc *redisCache) NewScript(script string) *Script {
+	return &Script{
+		script: redis.NewScript(script),
+	}
+}
+
+// Run 执行脚本
+// ctx: 上下文
+// client: Redis 客户端（传入 redisCache.client）
+// keys: KEYS 数组
+// args: ARGV 数组
+func (s *Script) Run(ctx context.Context, client *redis.Client, keys []string, args ...interface{}) (interface{}, error) {
+	return s.script.Run(ctx, client, keys, args...).Result()
+}
+
+// Load 加载脚本到 Redis
+func (s *Script) Load(ctx context.Context, client *redis.Client) (string, error) {
+	return s.script.Load(ctx, client).Result()
+}
+
+// Exists 检查脚本是否已加载
+func (s *Script) Exists(ctx context.Context, client *redis.Client) ([]bool, error) {
+	return s.script.Exists(ctx, client).Result()
+}
+
+// Hash 返回脚本的 SHA1 哈希值
+func (s *Script) Hash() string {
+	return s.script.Hash()
+}
+
+// GetClient 获取底层的 Redis 客户端，用于 Script 操作
+// 使用示例：
+//
+//	script := cache.NewScript("return redis.call('get', KEYS[1])")
+//	result, err := script.Run(ctx, cache.GetClient(), []string{"mykey"})
+func (rc *redisCache) GetClient() *redis.Client {
+	return rc.client
+}
