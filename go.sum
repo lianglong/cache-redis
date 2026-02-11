@@ -10,3 +10,4 @@ github.com/lianglong/cache v1.1.0 h1:xVGFc3XfvrcycnecEtmLhYLOkebPkYakgHcYSjDZemk
 github.com/lianglong/cache v1.1.0/go.mod h1:2vYofRgbZOwlonZ50Pkq/1pfC6oXyAoA+uY7Wzyf6/M=
 github.com/redis/go-redis/v9 v9.15.1 h1:BVn5z3pdIKIr5WI4Yv1MRXslB616gqBLBgVmhykiHIw=
 github.com/redis/go-redis/v9 v9.15.1/go.mod h1:u410H11HMLoB+TP67dz8rL9s6QW2j76l0//kSOd3370=
+github.com/redis/go-redis/v9 v9.17.3/go.mod h1:u410H11HMLoB+TP67dz8rL9s6QW2j76l0//kSOd3370=

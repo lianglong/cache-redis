@@ -21,6 +21,7 @@ cache-redis 是 cache 库的 Redis 驱动实现，基于 [go-redis/redis](https:
 - 📊 **数据结构** - 支持 String、Hash、List、Set 等数据结构
 - 🔢 **原子操作** - Incr、Decr 等原子计数操作
 - ⏰ **TTL 管理** - 灵活的过期时间控制
+- 📜 **Lua 脚本** - 完整的 Lua 脚本执行支持，实现原子性复杂操作
 
 ## 安装
 
@@ -283,6 +284,48 @@ fmt.Printf("Found keys: %v\n", keys)
 // 关闭连接
 c.Close()
 ```
+
+### 9. Lua 脚本执行
+
+Redis 支持使用 Lua 脚本执行原子性的复杂操作，避免竞态条件。
+
+```go
+// 直接执行脚本
+script := `
+    local current = redis.call('GET', KEYS[1])
+    if current == ARGV[1] then
+        redis.call('SET', KEYS[1], ARGV[2])
+        return 1
+    else
+        return 0
+    end
+`
+result, _ := cache.Eval(ctx, script, []string{"key"}, "old_value", "new_value")
+
+// 预加载脚本（性能更好）
+sha1, _ := cache.ScriptLoad(ctx, script)
+result, _ = cache.EvalSha(ctx, sha1, []string{"key"}, "old_value", "new_value")
+
+// 使用脚本对象（推荐，自动管理）
+lockScript := cache.NewScript(`
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+    else
+        return 0
+    end
+`)
+
+// 执行脚本
+result, _ = lockScript.Run(ctx, cache.GetClient(), []string{"lock:resource"}, "token")
+```
+
+**更多 Lua 脚本使用场景：**
+- 分布式锁
+- 限流器（滑动窗口）
+- 原子性条件更新
+- 批量计算操作
+
+详细用法请参考 [Lua 脚本指南](LUA_SCRIPT_GUIDE.md)。
 
 ## 命名空间使用
 

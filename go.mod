@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/lianglong/cache v1.1.0
-	github.com/redis/go-redis/v9 v9.15.1
+	github.com/redis/go-redis/v9 v9.17.3
 )
 
 require (
